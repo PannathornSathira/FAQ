@@ -1,0 +1,11 @@
+langchain==0.3.19
+langchain-openai==0.3.7
+langchain-core==0.3.40
+langchain-text-splitters==0.3.6
+langchain-community==0.3.18
+langgraph==0.3.1
+ipython==8.20.0
+speechrecognition==3.14.1
+typing-extensions==4.12.2
+streamlit==1.42.2
+streamlit_chat==0.1.1

@@ -1,0 +1,58 @@
+from langchain.chat_models import init_chat_model
+import getpass
+import os
+from langchain_openai import OpenAIEmbeddings
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain import hub
+from langchain_core.documents import Document
+from typing_extensions import List, TypedDict
+from langgraph.graph import START, StateGraph
+from IPython.display import Image, display
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.tools import tool
+#from backend.const import *
+
+os.environ["LANGSMITH_TRACING"] = "true"
+os.environ["LANGSMITH_API_KEY"] = "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"
+os.environ["LANGSMITH_PROJECT"] ="pr-weary-crystallography-99"
+os.environ["OPENAI_API_KEY"] = "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"
+llm = init_chat_model("gpt-4o-mini", model_provider="openai")
+embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+vector_store = InMemoryVectorStore.load('vectorr_store', embedding=embeddings)
+prompt = hub.pull("rlm/rag-prompt")
+
+class State(TypedDict):
+    question: str
+    context: List[Document]
+    answer: str
+    
+#@tool(response_format="content_and_artifact")
+def retrieve(state: State):
+    retrieved_docs = vector_store.similarity_search(state["question"],k=2)
+    serialized = "\n\n".join(
+        (f"Source: {doc.metadata}\n" f"Content: {doc.page_content}")
+        for doc in retrieved_docs
+    )
+    return {"context": retrieved_docs}
+
+
+def generate(state: State):
+    docs_content = "\n\n".join(doc.page_content for doc in state["context"])
+    messages = prompt.invoke({"question": state["question"], "context": docs_content})
+    response = llm.invoke(messages)
+    return {"answer": response.content}
+
+graph_builder = StateGraph(State).add_sequence([retrieve, generate])
+graph_builder.add_edge(START, "retrieve")
+graph = graph_builder.compile()
+memory = MemorySaver()
+graph = graph_builder.compile(checkpointer=memory)
+config = {"configurable": {"thread_id": "abc123"}}
+
+def run_llm(query) -> any:
+    return graph.invoke({"question": query}, config=config,)
+
+if __name__ == '__main__':
+    print("Hi")

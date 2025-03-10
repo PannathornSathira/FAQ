@@ -1,9 +1,8 @@
 from dependency import *
-os.environ["OPENAI_API_KEY"] = "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"
+os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
 os.environ["LANGSMITH_TRACING"] = "true"
 os.environ["LANGSMITH_API_KEY"] = "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"
 os.environ["LANGSMITH_PROJECT"] ="pr-weary-crystallography-99"
-print("OPen Key is, " + os.environ["OPENAI_API_KEY"])
 llm = init_chat_model("gpt-4o-mini", model_provider="openai", temperature=0)
 embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
 vector_store = InMemoryVectorStore.load('vectorr_store', embedding=embeddings)

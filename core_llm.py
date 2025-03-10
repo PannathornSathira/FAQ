@@ -1,8 +1,5 @@
 from dependency import *
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    raise ValueError("OpenAI API Key is not set! Please set it before importing this module.")
-os.environ["OPENAI_API_KEY"] = api_key
+os.environ["OPENAI_API_KEY"] = "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"
 os.environ["LANGSMITH_TRACING"] = "true"
 os.environ["LANGSMITH_API_KEY"] = "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"
 os.environ["LANGSMITH_PROJECT"] ="pr-weary-crystallography-99"

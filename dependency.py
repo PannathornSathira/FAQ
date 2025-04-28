@@ -17,3 +17,11 @@ from langgraph.prebuilt import ToolNode, tools_condition
 import speech_recognition as sr
 from io import BytesIO
 import streamlit as st
+from kokoro import KPipeline
+from IPython.display import display, Audio
+import soundfile as sf
+import torch
+import numpy as np
+from openai import OpenAI
+from transformers import VitsModel, AutoTokenizer
+import pandas as pd

@@ -1,12 +1,14 @@
 from dependency import *
 os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
-os.environ["LANGSMITH_TRACING"] = "true"
-os.environ["LANGSMITH_API_KEY"] = "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"
-os.environ["LANGSMITH_PROJECT"] ="pr-weary-crystallography-99"
+os.environ["LANGSMITH_TRACING"] = st.secrets["LANGSMITH_TRACING"]
+os.environ["LANGSMITH_API_KEY"] = st.secrets["LANGSMITH_API_KEY"]
+
+os.environ["LANGSMITH_PROJECT"] =  st.secrets["LANGSMITH_PROJECT"]
 llm = init_chat_model("gpt-4o-mini", model_provider="openai", temperature=0)
 embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
-vector_store = InMemoryVectorStore.load('vectorr_store', embedding=embeddings)
+vector_store = InMemoryVectorStore.load('vectorr_store_expandQA', embedding=embeddings)
 graph_builder = StateGraph(MessagesState)
+
 @tool(response_format="content_and_artifact")
 def retrieve(query: str):
     """Retrieve information related to a query."""
@@ -76,10 +78,9 @@ def listen_from_mic(audio_file):
     """
     # Use the microphone as the audio source
     with sr.Microphone() as source:
-        print("Please say something...")
-        # Adjust for ambient noise and record audio
-        recognizer.adjust_for_ambient_noise(source)
-        audio = recognizer.listen(source)
+    # Adjust for ambient noise and record audio
+    recognizer.adjust_for_ambient_noise(source)
+    audio = recognizer.listen(source)
     """
     with sr.AudioFile(BytesIO(audio_file.read())) as source:
         audio = recognizer.record(source)
@@ -95,6 +96,53 @@ def listen_from_mic(audio_file):
         print("Could not request results from the service; {0}".format(e))
         return "None"
     
+def generate_voice_response_kokoro(text):
+    """
+    Generates speech for `text` via the TTS pipeline
+    and returns an IPython.display.Audio object.
+    """
+    # 1) Initialize your TTS pipeline (use the correct lang_code)
+    pipeline = KPipeline(lang_code='a')
+    generator = pipeline(text, voice='af_heart')
+
+    # 2) Accumulate all the raw‐audio chunks
+    chunks = []
+    for gs, ps, audio_chunk in generator:
+        chunks.append(audio_chunk)
+
+    # 3) Concatenate into one continuous NumPy array
+    full_audio = np.concatenate(chunks, axis=0)
+
+    # 4) Return an Audio widget at 24 kHz
+    return full_audio
+
+def generate_thai_answer(text):
+    client = OpenAI()
+    chunks: list[np.ndarray] = []
+
+    # 1) Stream raw PCM (16-bit little-endian) at 24 kHz directly from the API
+    with client.audio.speech.with_streaming_response.create(
+        model="gpt-4o-mini-tts",      # gpt-4o-mini TTS model
+        voice="coral",                # chosen Thai-compatible voice
+        input=text,
+        response_format="pcm"         # request raw PCM bytes
+    ) as response:
+        for pcm_bytes in response.iter_bytes(4096):
+            
+            audio_chunk = np.frombuffer(pcm_bytes, dtype=np.int16)
+            chunks.append(audio_chunk)
+    full_audio = np.concatenate(chunks, axis=0)
+    return full_audio
+
+def generate_thai_tts(text):
+    model = VitsModel.from_pretrained("facebook/mms-tts-tha")
+    tokenizer = AutoTokenizer.from_pretrained("facebook/mms-tts-tha")
+    inputs = tokenizer(text, return_tensors="pt")
+    with torch.no_grad():
+        output = model(**inputs).waveform
+    wave_np = np.asarray(output, dtype=np.float32)
+    rate=model.config.sampling_rate
+    return wave_np, rate
 
 graph_builder.add_node(query_or_respond)
 graph_builder.add_node(tools)

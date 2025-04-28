@@ -1,10 +1,12 @@
 import streamlit as st
 import os
 from streamlit_chat import message
+import pandas as pd
 import re
 st.header("FAQ")
 st.sidebar.header("Options")
-from core_llm import run_llm, listen_from_mic
+from core_llm import run_llm, listen_from_mic, generate_thai_answer, generate_thai_tts
+from original_core_llm import origi_llm
 plot_choice = st.sidebar.radio("Choose plot type:", ["Chat FAQ", "Voice FAQ"])
 
 if plot_choice == "Chat FAQ":
@@ -31,21 +33,21 @@ if plot_choice == "Chat FAQ":
         st.session_state["chat_history"].append({"role": "user", "content": prompt})
         
         with st.chat_message("assistant"):
+            response_origi = origi_llm(query=prompt)
+            answer_origi = response_origi['messages'][-1].content
+            answer_origi = 'Original answer : ' + answer_origi
+            st.markdown(answer_origi)
+           
             response = run_llm(query=prompt)
-            answer = response['messages'][-1].content  # Get the latest response.
+            answer = response['messages'][-1].content 
+            answer = 'SAR Enhance answer : ' + answer
             st.markdown(answer)
+            
+            st.session_state["chat_history"].append({"role": "assistant", "content": answer_origi})
             st.session_state["chat_history"].append({"role": "assistant", "content": answer})
-        
-        # Optionally display sources.
-        try:
-            sources = response['messages'][-2].content
-            if sources:
-                formatted_sources = "\n".join(
-                    re.findall(r'Content: .*?(?=\nSource:|\Z)', sources, re.DOTALL)
-                )
-                st.markdown(f"**Sources:**\n\n{formatted_sources}" if formatted_sources else "**Sources:**\n\n There is no source for this answer.")
-        except Exception:
-            st.markdown("**Sources:**\n\n There is no source for this answer.")
+        with st.expander("🔍 Show Source Of FAQ"):
+            df = pd.read_csv("Expanded_nt_QA.csv", index_col=0)
+            st.dataframe(df)
 else:
     st.write("You are in Voice FAQ mode")
     audio_value = st.audio_input("Say something")
@@ -57,13 +59,10 @@ else:
         with st.chat_message("assistant"):
             response = run_llm(query=users_prompt)
             answer = response['messages'][-1].content
+            #audio_answer = generate_thai_answer(answer)
+            audio_answer, sample_rate = generate_thai_tts(answer)
+            st.audio(audio_answer, sample_rate= sample_rate)
             st.markdown(answer)
-            try:
-                sources = response['messages'][-2].content
-                if sources:
-                    formatted_sources = "\n".join(
-                        re.findall(r'Content: .*?(?=\nSource:|\Z)', sources, re.DOTALL)
-                    )
-                    st.markdown(f"**Sources:**\n\n{formatted_sources}" if formatted_sources else "**Sources:**\n\n There is no source for this answer.")
-            except Exception:
-                st.markdown("**Sources:**\n\n There is no source for this answer.")
+        with st.expander("🔍 Show Source Of FAQ"):
+            df = pd.read_csv("Expanded_nt_QA.csv", index_col=0)
+            st.dataframe(df)
